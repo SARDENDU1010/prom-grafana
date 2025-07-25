@@ -1,0 +1,126 @@
+Linux server (Ubuntu 20.04/22.04 or Debian-based)
+
+Root or sudo access
+
+Port 9090 (Prometheus) and 3000 (Grafana) open
+
+🛠️ Step 1: Install Prometheus
+1.1 Create Prometheus user
+bash
+Copy
+Edit
+sudo useradd --no-create-home --shell /bin/false prometheus
+1.2 Create directories
+bash
+Copy
+Edit
+sudo mkdir /etc/prometheus
+sudo mkdir /var/lib/prometheus
+1.3 Download Prometheus
+bash
+Copy
+Edit
+cd /tmp
+curl -s https://api.github.com/repos/prometheus/prometheus/releases/latest \
+  | grep browser_download_url \
+  | grep linux-amd64.tar.gz \
+  | cut -d '"' -f 4 \
+  | wget -i -
+
+tar -xvf prometheus-*-linux-amd64.tar.gz
+cd prometheus-*-linux-amd64
+1.4 Move binaries
+bash
+Copy
+Edit
+sudo cp prometheus /usr/local/bin/
+sudo cp promtool /usr/local/bin/
+sudo chown prometheus:prometheus /usr/local/bin/prometheus /usr/local/bin/promtool
+1.5 Move config and consoles
+bash
+Copy
+Edit
+sudo cp -r consoles/ console_libraries/ /etc/prometheus/
+sudo cp prometheus.yml /etc/prometheus/
+sudo chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus
+📋 Step 2: Create Prometheus systemd service
+Create file:
+
+bash
+Copy
+Edit
+sudo nano /etc/systemd/system/prometheus.service
+Paste:
+
+ini
+Copy
+Edit
+[Unit]
+Description=Prometheus
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=prometheus
+ExecStart=/usr/local/bin/prometheus \
+  --config.file=/etc/prometheus/prometheus.yml \
+  --storage.tsdb.path=/var/lib/prometheus/ \
+  --web.console.templates=/etc/prometheus/consoles \
+  --web.console.libraries=/etc/prometheus/console_libraries
+
+[Install]
+WantedBy=default.target
+Start Prometheus
+bash
+Copy
+Edit
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl enable prometheus
+sudo systemctl start prometheus
+Test it:
+Visit: http://<your_server_ip>:9090
+
+📊 Step 3: Install Grafana
+3.1 Add Grafana APT repo (for Debian/Ubuntu)
+bash
+Copy
+Edit
+sudo apt-get install -y software-properties-common
+sudo add-apt-repository "deb https://packages.grafana.com/oss/deb stable main"
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+sudo apt-get update
+3.2 Install Grafana
+bash
+Copy
+Edit
+sudo apt-get install -y grafana
+3.3 Start and enable Grafana
+bash
+Copy
+Edit
+sudo systemctl start grafana-server
+sudo systemctl enable grafana-server
+Access it:
+Open http://<your_server_ip>:3000
+
+Login: admin / admin (change password on first login)
+
+🔄 Step 4: Connect Prometheus to Grafana
+Login to Grafana
+
+Go to Configuration → Data Sources
+
+Add data source → Prometheus
+
+URL: http://localhost:9090
+
+Click Save & Test
+
+✅ You're Done!
+Prometheus runs at: http://<ip>:9090
+
+Grafana runs at: http://<ip>:3000
+
+You can import dashboards for system monitoring or custom metrics.
+
