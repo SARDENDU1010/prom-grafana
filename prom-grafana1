@@ -1,0 +1,150 @@
+Here’s the modified setup of Prometheus and Grafana on a Linux server to:
+
+Use custom directory: /home/abcs/sar1
+
+Run under user abcs
+
+Set Prometheus on port 3181
+
+Set Grafana on port 8056
+
+🛠️ Step 1: Install Prometheus under Custom User & Directory
+1.1 Ensure user abcs exists
+bash
+Copy
+Edit
+sudo useradd -m -s /bin/bash abcs  # Skip if user already exists
+1.2 Create directories
+bash
+Copy
+Edit
+sudo mkdir -p /home/abcs/sar1
+sudo mkdir -p /home/abcs/sar1/data
+sudo mkdir -p /home/abcs/sar1/consoles
+sudo mkdir -p /home/abcs/sar1/console_libraries
+sudo chown -R abcs:abcs /home/abcs/sar1
+1.3 Download and install Prometheus
+bash
+Copy
+Edit
+cd /tmp
+curl -s https://api.github.com/repos/prometheus/prometheus/releases/latest \
+  | grep browser_download_url \
+  | grep linux-amd64.tar.gz \
+  | cut -d '"' -f 4 \
+  | wget -i -
+
+tar -xvf prometheus-*-linux-amd64.tar.gz
+cd prometheus-*-linux-amd64
+
+sudo cp prometheus /usr/local/bin/
+sudo cp promtool /usr/local/bin/
+sudo chown abcs:abcs /usr/local/bin/prometheus /usr/local/bin/promtool
+
+cp -r consoles console_libraries prometheus.yml /home/abcs/sar1/
+chown -R abcs:abcs /home/abcs/sar1
+1.4 Modify Prometheus config to run on port 3181
+Edit:
+
+bash
+Copy
+Edit
+nano /home/abcs/sar1/prometheus.yml
+Ensure the global and scrape_configs are correct. No need to change ports here, as it's set via CLI args.
+
+📋 Step 2: Create Prometheus systemd service (custom)
+Create file:
+
+bash
+Copy
+Edit
+sudo nano /etc/systemd/system/prometheus.service
+Paste:
+
+ini
+Copy
+Edit
+[Unit]
+Description=Custom Prometheus
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=abcs
+ExecStart=/usr/local/bin/prometheus \
+  --config.file=/home/abcs/sar1/prometheus.yml \
+  --storage.tsdb.path=/home/abcs/sar1/data \
+  --web.console.templates=/home/abcs/sar1/consoles \
+  --web.console.libraries=/home/abcs/sar1/console_libraries \
+  --web.listen-address=:3181
+
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+Start Prometheus
+bash
+Copy
+Edit
+sudo systemctl daemon-reload
+sudo systemctl enable prometheus
+sudo systemctl start prometheus
+Verify:
+bash
+Copy
+Edit
+curl http://localhost:3181  # or open in browser
+📊 Step 3: Install & Configure Grafana on Port 8056
+3.1 Install Grafana
+bash
+Copy
+Edit
+sudo apt-get install -y software-properties-common
+sudo add-apt-repository "deb https://packages.grafana.com/oss/deb stable main"
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install -y grafana
+3.2 Change default port from 3000 to 8056
+Edit config:
+
+bash
+Copy
+Edit
+sudo nano /etc/grafana/grafana.ini
+Find the [server] section and update:
+
+ini
+Copy
+Edit
+[server]
+http_port = 8056
+3.3 Start Grafana
+bash
+Copy
+Edit
+sudo systemctl daemon-reload
+sudo systemctl enable grafana-server
+sudo systemctl start grafana-server
+Access Grafana:
+Open: http://<your_server_ip>:8056
+
+Login: admin / admin
+
+🔄 Step 4: Connect Prometheus to Grafana
+Login to Grafana
+
+Go to Configuration → Data Sources
+
+Add Prometheus
+
+Set URL: http://localhost:3181
+
+Click Save & Test
+
+✅ Summary of Changes
+Component	Value
+Prometheus	Installed in /home/abcs/sar1
+User	abcs
+Prometheus Port	3181
+Grafana Port	8056
+
